@@ -23,7 +23,7 @@ export type FlightResponseJSON = z.infer<typeof flightResponseJsonSchema>
 
 @Injectable()
 export class SchemaService {
-	parseFlightsResponseJson(data: string) {
-		return flightResponseJsonSchema.parse(JSON.parse(data))
+	parseFlightsResponseJson(data: unknown) {
+		return flightResponseJsonSchema.parse(data)
 	}
 }

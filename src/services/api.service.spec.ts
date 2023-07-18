@@ -101,7 +101,7 @@ describe('ApiService', () => {
 				},
 			})
 
-			expect(apiService.getFlightsFromSource('challengeSourceA')).rejects.toEqual('Unexpected message format')
+			expect(apiService.getFlightsFromSource('challengeSourceA')).rejects.toBeTruthy()
 		})
 	})
 

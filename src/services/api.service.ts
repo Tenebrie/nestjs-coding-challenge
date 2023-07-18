@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
-import * as https from 'https'
 import { FlightResponseJSON, SchemaService } from './schema.service'
 import { CacheService } from './cache.service'
+import axios from 'axios'
 
 export const FlightDataSourceURLs = {
 	challengeSourceA: 'https://coding-challenge.powerus.de/flight/source1',
@@ -15,7 +15,7 @@ export class ApiService {
 	constructor(private readonly schemaService: SchemaService, private readonly cacheService: CacheService) {}
 
 	getFlightsFromSource(source: FlightDataSource) {
-		return new Promise<{ source: FlightDataSource; data: FlightResponseJSON }>((resolve, reject) => {
+		return new Promise<{ source: FlightDataSource; data: FlightResponseJSON }>(async (resolve, reject) => {
 			const cachedValue = this.cacheService.readCacheEntry(source)
 			if (cachedValue) {
 				resolve({
@@ -27,41 +27,25 @@ export class ApiService {
 
 			const url = FlightDataSourceURLs[source]
 
-			const request = https
-				.get(url, (response) => {
-					let data = ''
-
-					response.on('data', (chunk) => {
-						data += chunk
-					})
-
-					response.on('end', () => {
-						try {
-							const parsedResponse = this.schemaService.parseFlightsResponseJson(data)
-							this.cacheService.writeCacheEntry(source, parsedResponse)
-
-							resolve({
-								source,
-								data: parsedResponse,
-							})
-						} catch (err) {
-							reject('Unexpected message format')
-						}
-					})
-				})
-				.on('error', (err) => {
-					reject(err.message)
-				})
-
 			// Service is slow. Reject the promise without cancelling the request.
-			request.setTimeout(500, () => {
+			// Keep the result for the cache regardless.
+			const timeout = setTimeout(() => {
 				reject('Internal timeout')
-			})
+			}, 500)
 
-			// Service is down. Destroy the request.
-			request.setTimeout(5000, () => {
-				request.destroy(new Error('Request timed out'))
-			})
+			try {
+				const response = await axios.get(url)
+				clearTimeout(timeout)
+				const parsedResponse = this.schemaService.parseFlightsResponseJson(response.data)
+				this.cacheService.writeCacheEntry(source, parsedResponse)
+				resolve({
+					source,
+					data: parsedResponse,
+				})
+			} catch (err) {
+				console.error(`Request to source ${source} has failed`)
+				reject(err)
+			}
 		})
 	}
 
